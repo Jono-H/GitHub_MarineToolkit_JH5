@@ -1,0 +1,21 @@
+# Track2KBA: Introduction
+
+Analyses outlined in this chapter were performed in **`r sessionInfo()$R.version$version.string`**\
+
+This chapter was last updated on **`r Sys.Date()`** 
+
+<br>
+
+<!--- This is an HTML comment in RMarkdown. You can use these comments to make notes that won't get read when running the code -->
+
+<!--- If you don't understand what a RMarkdown document is. Stop here. Go learn. -->
+
+<!--- Equally. You must understand the difference between Markdown vs. RMarkdown -->
+
+<!--- Remember, outside of the R code chunks we are now coding in HTML syntax, not R syntax -->
+
+## What this chapter covers:
+
+-   A general guide to track2KBA
+
+-   [Text to be provided]

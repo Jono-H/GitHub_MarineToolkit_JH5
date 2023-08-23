@@ -1,0 +1,9 @@
+# Sites: Considerations for assessing sites against criteria
+
+Chapter to review data in context of things like:
+
+-   Is the outputted site really suitable in the context of IBAs / KBAs
+
+-   How else might the site data get used in the context area-based conservation measures? RFMOs? AVIStep? Other... 
+
+-   Aggregations, Predictably, Regularly

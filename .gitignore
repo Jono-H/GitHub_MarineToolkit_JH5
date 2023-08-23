@@ -1,0 +1,10 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+/data-testing
+/photos-for-book
+/_book
+/_bookdown_files
+/R-RMarkdown-TestFiles
+/seaward_extension_outputs

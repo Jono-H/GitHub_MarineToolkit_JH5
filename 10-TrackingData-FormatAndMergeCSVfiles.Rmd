@@ -1,0 +1,351 @@
+# Tracking data: Merge files together for analysis
+
+Analyses outlined in this chapter were performed in **`r sessionInfo()$R.version$version.string`**\
+
+This chapter was last updated on **`r Sys.Date()`** 
+
+<br>
+
+<!--- This is an HTML comment in RMarkdown. You can use these comments to make notes that won't get read when running the code -->
+
+<!--- If you don't understand what a RMarkdown document is. Stop here. Go learn. -->
+
+<!--- Equally. You must understand the difference between Markdown vs. RMarkdown -->
+
+<!--- Remember, outside of the R code chunks we are now coding in HTML syntax, not R syntax -->
+
+## What this chapter covers:
+
+-   Read in raw tracking data into R (assuming data is in *.csv file format).
+
+-   Combine data into a single data frame.
+
+-   Save the single data frame as a *.csv file for further analyses
+
+
+<br>
+
+## Where you can get example data for the chapter:
+
+This tutorial uses example data from a project led by the BirdLife International partner in Croatia: BIOM
+
+-   The citation for this data is: **TBC**
+
+-   The example data can be downloaded from: **TBC - STDB**
+
+<br>
+
+<!--- In the code chunk below, we specify include = F, so that we will run the chunk but not include the chunk in the final document. We set a global argument in the code chunk of echo = T, so that in later code chunks, the code will be displayed in the RMarkdown document -->
+
+```{r trackprepare-setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+## we also specify in the options here to set the overall working directory
+## back to the root directory of the R Project we are working in. We do this
+## because by default , the working directory for R code chunks is the directory 
+## that contains the Rmd document. We don't want this option given our file
+## set up prefers the option of having the working directory specified as that
+## where the R Project is. By specifying double dots (or more), this is like saying
+## go back one directory or more, as required.
+knitr::opts_knit$set(root.dir = ".")
+
+```
+
+## Load packages
+
+**Load required R packages for use with codes in this chapter:**
+
+If the package(s) fails to load, you will need to install the relevant package(s).
+
+```{r trackprepare-load-packages, include = TRUE}
+
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## Load libraries --------------------------------------------------------------
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## sf package for spatial data analyses (i.e. vector files such as points, lines, polygons)
+library(sf)
+## Tidyverse for data manipulation
+library(tidyverse)
+## ggplot2 for plotting opionts
+library(ggplot2)
+## rnaturalearth package for geographic basemaps in R
+library(rnaturalearth)
+## leaflet package for interactive maps in R
+library(leaflet)
+## lubridate for date time
+library(lubridate)
+## track2kba for the analysis of important site identification
+library(track2KBA)
+## speed filter
+library(trip)
+## linear interpolation
+library(adehabitatLT)
+##
+library(raster)
+##
+library(viridis)
+##
+library(readxl)
+library(xlsx)
+
+
+```
+
+<br>
+
+## Define object names for chapter
+
+Typically, if your data follows the same format as the examples in the chapter, then below should be the only thing(s) you need to change.
+
+```{r trackprepare-objects}
+
+## Define your species name (avoid spaces by using hashes instead. This can help with later coding steps)
+species.name <- "Puffinus-yelkouan"
+
+## Define your colony name
+colony.name <- "Z"
+
+## Set file path to where tracking data is stored
+## If you are less familiar with R, it can be easier to specify the entire file path.
+fpath.tracks <- "C:\\Users\\jonathan.handley\\OneDrive - BirdLife International\\JonoHandley_BirdLife\\PROJECTS\\Marine Toolkit\\GitHub_MarineToolkit_JH3\\MarMeCo-Toolkit-R-Beta-JH3\\data-testing\\tracking-data\\Puffinus-yelkouan-raw-csv-tracking\\Z"
+
+```
+
+> Pro Tip: navigate to the folder where your tracking data is stored. Copy the file path from within the file explorer. Then type the `readClipboard()` function in R to print the file path. Copy and paste the file path into the code above.
+
+[See screenshot of file path with tracking data]
+
+
+<br>
+
+## Storing, reading, and formatting raw tracking data
+
+<br>
+
+### Storing raw tracking data
+
+The type of animal tracking device you use will dictate what format your raw tracking data is stored in.
+
+Typically, raw outputs from animal tracking devices have been stored as *.csv files.
+
+Good file management is critical when working with large tracking datasets.
+
+[As a guide, the following file structure can support efficient data management]
+
+<br>
+
+### Reading raw tracking data into R / Rstudio
+
+Depending on your file structure, type of raw data, and size of your overall data, we recommend reading data into R in a way that produces a single data file for all your data required for a specific analysis.
+
+<br>
+
+> Reading all your data in at once is greatly facilitated when each data file is stored in a stardised format.
+
+<br>
+
+
+## Example data summary: Yelkouan Shearwaters (*Puffinus yelkouan*), Croatia
+
+Summary of the example dataset used in this tutorial:
+
+- Species tracked: Yelkouan Shearwater (*Puffinus yelkouan*)
+
+- Colony tracked from: Zaklopatica (Z), Croatia
+
+<!--- We originally considered all the data from Life Artina project 
+(Yelkouan Shearwater tracking project in Croatia)
+- (sub)Colonies tracked from: Zaklopatica (Z), Veli Maslovnjak (VM) 
+We are now focusing on just one colony so the format better aligns with
+the Seabird Tracking Database -->
+
+- Site / source population birds tracked from: Lastovo SPA, Croatia
+
+- Life-cycle stage when birds were tracked: chick-rearing
+
+- Years birds were tracked over: 2019, 2020
+
+- Devices birds were tracked with: GPS
+
+- Device model type: PathTrack nanoFix GPS/UHF transmitters (≤ 5.5 g)
+
+- [Figure showcasing Lastovo SPA and source populations - Consider Sensitivity of Colony Locations!! Is this a problem to share these locations?]
+
+
+<br>
+
+## Loading example data: Yelkouan Shearwaters (*Puffinus yelkouan*)
+
+### Load example data: First, exploring the data on your machine
+
+```{r trackprepare-wd, include=TRUE}
+
+## Check where your current working directory is set up to go to:
+getwd()
+
+```
+
+
+In the examples below, you can see different levels at which we have explored what is inside each folder.
+
+You will note:
+
+- A top level folder called **Puffinus-yelkouan-raw-csv-tracking** 
+
+- Within this folder, different colonies worth of tracking data: Zaklopatica (Z), Veli Maslovnjak (VM).
+
+- Within each colony folder of tracking data, uniquely named **.csv** files relating to each unique deployment on a bird.
+
+<br>
+
+> This format of broadly storing data by Species -> Colony is aligned with the format used for inputting data into the Seabird Tracking Database.
+
+> *[We recognise that more granular (finer) levels of data storage may be chosen. See Appendix for suggestions]*
+
+
+```{r trackprepare-file-review-1, echo=F}
+
+## so long as your working directory is set up in the correct place, you can review
+## the contents of what is inside the folder and relevant sub-directories with the dir command.
+dir()
+dir("./data-testing/tracking-data/Puffinus-yelkouan-raw-csv-tracking")
+dir("./data-testing/tracking-data/Puffinus-yelkouan-raw-csv-tracking/VM")
+```
+
+```{r trackprepare-file-review-2, echo=T}
+dir("./data-testing/tracking-data/Puffinus-yelkouan-raw-csv-tracking/Z")
+
+```
+
+<br>
+
+### Load example data: Second, prepare the files for loading into R
+
+[Preparing animal tracking data for merging into a single data frame may require some initial cleaning of the raw tracking data outputs. You will need to consider] :
+
+- Do all the devices I have collected data with have a common file format? (e.g. are the column names consistent across all devices?)
+
+- Do all the devices I have collected data with have a common file type? (e.g. are the output files *.csv files, or are they custom to the device manufacturer?)
+
+- Other
+
+If the raw outputs from tracking devices vary across deployments, you may need to first standardise data from each deployment into a common format for subsequent merging.
+
+For example: If you deployed GPS device TYPE A in season 1 and the output was a csv file with 8 columns, and you then deployed GPS device TYPE B in season 2 and the output was a custom file type with 10 columns, you would need to standardise the data separately for each GPS device type and season combination, before being able to merge all the data into a single data frame.
+
+<br>
+
+### Load example data: Third, load the files into a single data frame in R
+
+Here, we assume users have prepared their data into standardised *.csv files across each deployment, where each file has the same number of columns and matching column names.
+
+> The number of columns and column names can be unique to your data. The key thing is that all column names, and the associated variables represented by each column, are matching.
+
+Notes on the example data:
+
+- In the case of the example data for Yelkouan Shearwaters, the original output from the PathTrack nanoFix GPS/UHF transmitters (GPS devices) was a custom *.pos file.
+
+- [Example R code for reading in and preparing these *.pos files for further analyses in R is provided in the Appendix].
+
+<br>
+
+
+#### Produce list of file names with all your tracking data
+
+Produce a list of file names with all your tracking data
+
+```{r trackprepare-listfiles}
+
+## specifying the files: folder directly
+track.list <- list.files(path = fpath.tracks,
+                         ## Set recursive = TRUE to search through sub-folders if required.
+                         recursive = FALSE,
+                         pattern = ".csv",
+                         full.names = T)
+
+```
+
+
+Check how long the list of names is names that was read in using the `list.files()` function.
+
+```{r trackprepare-check}
+
+## Check how many deployments you are expecting to bind together. 
+## This code effectively says, how long is the list 
+## of names that were read in using the list.files function.
+length(track.list)
+
+```
+
+If the number is too small or too large, and you expect more or less deployments to be considered, it may be the case that:
+
+- there are additional *.csv files in your deployment folders that should not be there (i.e. too many deployments being considered / number too large)
+
+- there are fewer deployments being considered than should be. (i.e. supposed *.csv files indicative of deployments are likely not being read correctly)
+
+Ultimately, if the number of deployments you think you have in total is not equivalent to this review, then check what the issue might be as per options considered above.
+
+Next, create a blank data frame to which you can bind on the tracking data from each unique deployment. Effectively, you can consider this step as preparing for sticking all your data together to make one big table (a data frame in R) with all of the data.
+
+#### Merge tracking data together to create singe file
+
+```{r trackprepare-df}
+## specify a blank dataframe
+track.df <- data.frame()
+
+```
+
+Finally, use a for loop to read in each file from each unique deployment, and then bind them all together.
+
+> Unsure how a for loop works? See numerous resources online.
+
+```{r trackprepare-loop}
+
+for(i in 1:length(track.list)){
+  ## read in a unique file
+  temp <- read.csv(track.list[i])
+  ## bind the unique file onto the data frame template
+  track.df <- rbind(track.df,temp)
+  ## print some text to show progress of the loop and binding process
+  print(paste("Deployment ", i, " of ", length(track.list), "being bound to the data frame."))
+}
+
+
+```
+
+
+<br>
+
+### Review the data you have read into R
+
+Here you are doing some quick inspections to see if anything unexpected may have happened when reading your data into R.
+
+> If you are unsure, or want to learn more about the different way data can be structured in R, consider doing an online R course which teaches the beginnger concepts of R. Also, see the latest “R for Data Science” book by Hadley Wickham and colleagues.
+
+```{r trackprepare-review2}
+
+## Print the column names and first two rows of data - does everything look as it should?
+head(track.df,2)
+
+## Print the LAST two rows of data - does everything look as it should?
+tail(track.df,2)
+
+## Now check the structure of each column of data
+str(track.df,2)
+
+```
+
+
+### Save the merged data
+
+```{r trackprepare-save}
+
+## Save the output file
+write.csv(track.df,
+          paste0("./data-testing/tracking-data/",
+                 species.name,
+                 "-",colony.name,"-tracking-raw-merged.csv"),
+          row.names = F)
+
+```
+

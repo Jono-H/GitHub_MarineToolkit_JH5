@@ -1,0 +1,5 @@
+# Tracking data: Example data explained
+
+Provide background details about the example data from Croatia
+
+Explain the two colonies worth of tracking data and why we save one colony for the STBD format / dataGroup demonstration.

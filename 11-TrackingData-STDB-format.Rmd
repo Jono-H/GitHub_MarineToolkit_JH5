@@ -1,0 +1,519 @@
+# Tracking data: Convert files into format of Seabird Tracking Database
+
+Analyses outlined in this chapter were performed in **`r sessionInfo()$R.version$version.string`**\
+
+This chapter was last updated on **`r Sys.Date()`** 
+
+<br>
+
+<!--- This is an HTML comment in RMarkdown. You can use these comments to make notes that won't get read when running the code -->
+
+<!--- If you don't understand what a RMarkdown document is. Stop here. Go learn. -->
+
+<!--- Equally. You must understand the difference between Markdown vs. RMarkdown -->
+
+<!--- Remember, outside of the R code chunks we are now coding in HTML syntax, not R syntax -->
+
+## What this chapter covers:
+
+-   Convert merged data into the INPUT and OUTPUT format of the Seabird Tracking Database: <https://www.seabirdtracking.org/>.
+
+> NOTE: if your dataset is already hosted on the Seabird Tracking Database, you can download it from there directly and skip the steps below.
+
+
+<br>
+
+## Where you can get example data for the chapter:
+
+This tutorial uses example data from a project led by the BirdLife International partner in Croatia: BIOM
+
+-   The citation for this data is: **TBC**
+
+-   The example data can be downloaded from: **See chapter about merging tracking data**
+
+-   A description of the example data is given in a separate chapter
+
+<br>
+
+<!--- In the code chunk below, we specify include = F, so that we will run the chunk but not include the chunk in the final document. We set a global argument in the code chunk of echo = T, so that in later code chunks, the code will be displayed in the RMarkdown document -->
+
+```{r stdb-setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+## we also specify in the options here to set the overall working directory
+## back to the root directory of the R Project we are working in. We do this
+## because by default , the working directory for R code chunks is the directory 
+## that contains the Rmd document. We don't want this option given our file
+## set up prefers the option of having the working directory specified as that
+## where the R Project is. By specifying double dots (or more), this is like saying
+## go back one directory or more, as required.
+knitr::opts_knit$set(root.dir = ".")
+
+```
+
+## Load packages
+
+**Load required R packages for use with codes in this chapter:**
+
+If the package(s) fails to load, you will need to install the relevant package(s).
+
+```{r stdb-load-packages, include = TRUE}
+
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## Load libraries --------------------------------------------------------------
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## sf package for spatial data analyses (i.e. vector files such as points, lines, polygons)
+library(sf)
+## Tidyverse for data manipulation
+library(tidyverse)
+## ggplot2 for plotting opionts
+library(ggplot2)
+## rnaturalearth package for geographic basemaps in R
+library(rnaturalearth)
+## leaflet package for interactive maps in R
+library(leaflet)
+## lubridate for date time
+library(lubridate)
+## track2kba for the analysis of important site identification
+library(track2KBA)
+## speed filter
+library(trip)
+## linear interpolation
+library(adehabitatLT)
+##
+library(raster)
+##
+library(viridis)
+##
+library(readxl)
+library(xlsx)
+##
+library(parsedate)
+
+
+```
+
+<br>
+
+## Define object names for chapter
+
+Typically, if your data follows the same format as the examples in the chapter, then below should be the only thing(s) you need to change.
+
+```{r stdb-object}
+
+## Define your species name (avoid spaces by using hashes instead. This can help with later coding steps)
+species.name <- "Puffinus-yelkouan"
+
+## Define your colony name
+colony.name <- "Z"
+
+```
+
+## Load file created from previous chapter
+
+```{r stdb-load-data}
+
+## Read the csv file of all the merged data and name the object the same as in the relevant chapter
+track.df <- read.csv("./data-testing/tracking-data/Puffinus-yelkouan-Z-tracking-raw-merged.csv")
+
+```
+
+
+<br>
+
+## Seabird Tracking Database format
+
+Having data standardised into the same format greatly improves reproducible research, and also the ability for data to be used in other studies.
+
+The primary format we recommend is that of BirdLife International's Seabird Tracking Database: - <https://www.seabirdtracking.org/>
+
+When you visit the Seabird Tracking Database website, you will find the [Instructions page](https://www.seabirdtracking.org/instructions/), which:
+
+-   provides information about the standardised format of data used in this global database, and
+
+-   provides a dataset template that you can use to support formatting your data into the format used within the Seabird Tracking Database.
+
+For further details:
+
+-   See the [data submission instructions](https://www.seabirdtracking.org/wp-content/uploads/2023/06/Instructions-to-submit-data-to-the-Seabird-Tracking-Database_2023.pdf).
+
+-   Download the *dataset template* from the [Instructions page](https://www.seabirdtracking.org/instructions/)
+
+<br>
+
+> We recognise, however, that the format of the Seabird Tracking Database may not be appropriate for all analyses. Nevertheless, we encourage users to standardise their data into a common format. This will facilitate the ease through which data can be reformatted when necessary for other analyses.
+
+<br>
+
+## Loading the dataset template from Seabird Tracking Database
+
+By loading the dataset template from the Seabird Tracking Database, this can facilitate what the format of your data should adhere to, to support analyses outlined in the Marine Toolkit. 
+
+```{r stdb-template, include=TRUE}
+
+stdb.df.template <- read_xlsx("./data-testing/tracking-data-stdb/Template_Datapoints.xlsx",
+                     sheet = "Template")
+
+head(data.frame(stdb.df.template))
+
+## dimensions of the seabird tracking database data template
+dim(stdb.df.template)
+
+```
+
+<br>
+
+You can see that the dataset template from the Seabird Tracking Database contains 11 columns. How you format your data to match that of the Seabird Tracking Database will be dependent on the type of animal tracking device used (i.e. GPS, PTT, GLS)
+
+> SEE: within the Seabird Tracking Database template, the different example datasets for GPS, PTT, and GLS data.
+
+
+[See appendix for examples of preparing data from different device types for the format of the Seabird Tracking Database]
+
+<br>
+
+## INPUT format: Seabird Tracking Database
+
+<br>
+
+### Formatting own data to align with Seabird Tracking Database INPUT format
+
+<br>
+
+Typically, you will need three things to get data ready for the STDB:
+
+-   "Dataset" level information
+
+-   Metadata information
+
+-   "Data point" level information
+
+<br>
+
+> NOTE: Information stored in the STDB is organized into two levels – “Dataset” level and “Data points” level. The “dataset level”  are provided by filling in an online form, and the “data points” level of information is submitted by uploading a csv file.
+
+-   **Review the data submission instructions** indicated above for further guidance.
+
+#### “Dataset” level information required for STDB
+
+The “dataset level” information provides the broad background information about your dataset required for uploading the dataset to the STDB. It is the key information about any set of data that were collected for a given species, in a given colony, with a given type of device and are owned by the same group of contributors.
+
+<br>
+
+#### Metadata information
+
+A metadata file is a set of data that describes and gives information about other data.
+
+In this tutorial we provide an example metadata file which helps describe the data associated with the tracking information for each individual bird.
+
+Users can adapt this example template as required.
+
+> NOTE: To assist upload of your data to the Seabird Tracking Database, please ensure that entries in your relevant fields match the format used in the STDB. 
+
+-   **Review the data submission instructions** indicated above for further guidance.
+
+```{r stdb-read-meta}
+
+## Load the relevant metadata file - reading xlsx files can be fiddly - may require different packages
+#df_meta <- read_xlsx("./data-testing/tracking-data/Puffinus-yelkouan-metadata/PUFYEL-Z-Metadata.xlsx",
+#                     sheet = "Sheet1")
+
+df_meta <- read.xlsx(file="./data-testing/tracking-data/Puffinus-yelkouan-metadata/PUFYEL-Z-Metadata.xlsx", 
+                     sheetName="Sheet1") 
+
+## View the contents of the metadata file
+head(data.frame(df_meta),2)
+
+```
+
+Check how many distinct entries you have. This number should match that of the number of unique birds tagged as part of this relevant dataset.
+
+```{r stdb-check-meta}
+
+## Check how many distinct entries you have
+nrow(df_meta)
+
+```
+
+
+<br>
+
+#### Obtain point data file for “Data points” level information required for STDB
+
+First remind yourself of what the template STDB format looks like:
+
+```{r stdb--review3}
+head(data.frame(stdb.df.template),2)
+```
+
+And also consider what your data looks like:
+
+```{r stdb-review4}
+head(track.df,2)
+```
+
+<br>
+
+Then align own data with input format required by STDB. Do this by using your supporting metadata.
+
+> REMINDER: Within the Seabird Tracking Database template, you should recognise the options available to specify arguments within some fields. e.g. When specifying Age, this can only be specified as: adult,	immature,	juvenile	fledgling, OR,	unknown. Inputs for fields are case sensitive.
+
+The below code primarily is based around three functions in R:
+
+-   `select`
+
+-   `mutate`
+
+-   `relocate`
+
+Understand how these work if needed.
+
+<br>
+
+> NOTE: You will need to change the names of your columns if they differ to the example data below.
+
+##### Timestamp column
+
+A common problem many people encounter when learning to analyse animal tracking data is dealing with the column that relates to the timestamp of the tracking device.
+
+Typically, this information will be stored as a date and time - in a single column - from tracking devices.
+
+Timestamps typically need to be in the format of a POSIXct object.
+
+The `parse_date` function from the *`parsedate`* package, attempts to provide a simple option for standardising timestamp data which can come in multiple different formats.
+
+> Understand and review the requirements of timestampe data for processing animal tracking data if required.
+
+```{r stdb-date-time}
+
+## Use the parse_date function to try and standardise a timestamp column
+#str(track.df$dttm)
+track.df$dttm <- parse_date(track.df$dttm)
+#str(track.df$dttm)
+
+```
+
+<br>
+
+Continue with preparing data
+
+```{r stdb-format-stdb}
+
+## First, select relevant columns of information from your existing datapoint information needed to match the STDB format.
+df_stdb <- track.df %>% dplyr::select(bird_id,
+                                      dttm,
+                                      latitude,
+                                      longitude) 
+
+## Then, modify and create relevant columns of information - where you have these in your data - to align with STDB format.
+
+## the mutate functions allows you to add a new column of information.
+## add the new columns and rename the object to a more standardised name.
+df_stdb <- df_stdb %>% dplyr::mutate(BirdId = bird_id,
+                                      TrackId = bird_id,
+                                      DateGMT = date(dttm),
+                                      TimeGMT = format(df_stdb$dttm, format = "%H:%M:%S"),
+                                      Latitude = latitude,
+                                      Longitude = longitude,
+                                      Equinox = NA,
+                                      ArgosQuality = NA) %>% 
+  ## remove the original columns (note the minus sign "-" in front of each column name you are removing)
+  dplyr::select(-bird_id,
+                -dttm,
+                -latitude,
+                -longitude) 
+
+
+## Now GET THE relevant metadata information for your tracking data "datapoints" information
+## Ensure that your link column has the same name (in this case: it is the BirdID column above)
+df_meta_points <- df_meta %>% 
+  ## select the relevant columns
+  dplyr::select(bird_id, sex, age_deployment_start, breed_stage_deployment_start) %>% 
+  ## rename the columns if need be to match the format of the STDB
+  rename(BirdId = bird_id, 
+         Sex = sex, 
+         Age = age_deployment_start, 
+         Breed.Stage = breed_stage_deployment_start)
+
+## Now bind the relevant metadata onto your datapoints data
+#head(df_stdb,2)
+df_stdb <- left_join(df_stdb, df_meta_points, by = "BirdId")
+## review the bind worked
+#head(df_stdb,2)
+
+## Reorder the column names to match the format of the STDB
+df_stdb <- df_stdb %>% 
+  relocate(BirdId,
+            Sex, 
+            Age, 
+            Breed.Stage,
+            TrackId,
+            DateGMT,
+            TimeGMT,
+            Latitude,
+            Longitude,
+            Equinox,
+            ArgosQuality)
+
+```
+
+
+<br>
+
+#### Review of the INPUT format for the Seabird Tracking Database
+
+```{r stdb-review6}
+
+## Compare your data, to the STDB data template
+head(df_stdb,2)
+head(data.frame(stdb.df.template))
+
+```
+
+
+For the columns highlighted above, you may notice a few things: <br>
+
+-   BirdId, and TrackId, are specified with the same code. This is because when data is formatted to align with the format of the STDB:
+
+    -   we have a code that relates to the bird that was tracked (BirdId)
+    -   we have a unique code that relates to each trip undertaken by the bird, when multiple trips are recorded (TrackId). However, it is often the case that users do not provide data which has been pre-split into unique trips. Therefore, it is often the case that all entries relating to TrackId match that of BirdId
+
+-   Equinox and ArgosQuality are both specified as NA. This is because our data relates to GPS data which does not have an ArgosQuality estimate (typical of PTT devices) or a measure relating to the Equinox (typical of GLS devices).
+
+    -   see the Seabird Tracking Database data template for examples of how to specify Equinox and ArgosQuality when necessary.
+
+<br>
+
+### INPUT STDB format: saving
+
+<br>
+
+-   You should now have a key file:
+
+    -   A single file (a data frame called df_stdb) with all your data standardised into a common format.
+    
+    -   The common format of your data should reflect that of the INPUT files associated with uploading data to the Seabird Tracking Database.
+    
+> PLEASE NOTE: While it is not mandatory to upload your data to the [Seabird Tracking Database](https://www.seabirdtracking.org/instructions/) to perform analyses outlined in this toolkit, we greatly encourage users to do so given the many benefits of curating data in centralised repositories.
+      
+<br>
+
+
+```{r stdb-write-files}
+
+## Save the output file
+write.csv(df_stdb,
+          paste0("./data-testing/tracking-data/",
+                 species.name,
+                 "-",colony.name,"-tracking-STDB-input.csv"),
+          row.names = F)
+```
+
+
+## OUTPUT format: Seabird Tracking Database
+
+Formatting data to align with the input format of the seabird tracking database supports your ability to curate your data in a secure online repository. 
+
+Typically though, the data file one might use for analysis, will reflect the output format of data from the seabird tracking database.
+
+Here, instead of requiring users to upload data and then download again, we provide code to convert data from the input format of the seabird tracking database to the output format.
+
+### Load STDB output template
+
+Load and view the structure of the data according to the output format of the STDB.
+
+```{r stdb-output}
+
+## Load the template
+stdb.df.template.output <- read.csv("./data-testing/tracking-data-stdb/Template_Datapoints_Output_Format.csv")
+
+## View the column names of the template
+head(stdb.df.template.output)
+
+```
+
+<br>
+
+### Convert data to STDB output template
+
+Converting data to the output format of the STDB in this tutorial requires two things:
+
+-   A metadata file aligned to the format provided in the example earlier
+
+-   A single data frame matching the input format for the STDB (as created above)
+
+
+```{r stdb-output-convert}
+
+## First, convert the basis of the input format to the output format.
+## Essentially, you are just changing columns names here to match the output format
+df_stdb_output <- df_stdb %>% 
+  dplyr::select(bird_id = BirdId,
+                sex = Sex,
+                age = Age,   
+                breed_stage = Breed.Stage,
+                track_id = TrackId,
+                date_gmt = DateGMT,
+                time_gmt = TimeGMT,
+                latitude = Latitude,
+                longitude = Longitude,
+                equinox = Equinox,
+                argos_quality = ArgosQuality)
+
+## Second, get the relevant metadata from your metadata file
+## Here you are selecting the key metadata, and renaming columns accordingly
+## If your columns names differ, you will need to change the relevant inputs here.
+df_meta_output <- df_meta %>% 
+  dplyr::select(bird_id = bird_id,
+                scientific_name = species,
+                common_name = common_name,
+                site_name = site_location,
+                colony_name = colony_code,
+                lat_colony = colony_latitude,
+                lon_colony = colony_longitude,
+                device = tracking_device_type)
+
+
+## Third, some columns for the STDB output are populated automatically when uploading data
+## Here we create the necessary columns of STDB metadata for the purpose of the tutorial, but we populate
+## the columns with dummy data only.
+df_meta_output <- df_meta_output %>% 
+  mutate(dataset_id = "populated-upon-upload-STDB",
+         original_track_id = "populated-upon-upload-STDB",
+         breed_status = "populated-upon-upload-STDB")
+
+## Next, we bind the relevant metadata onto the overall tracking data dataframe
+df_stdb_output <- left_join(df_stdb_output, df_meta_output, by = "bird_id")
+
+## Finally, we reorder the columns to match the output format of the STDB
+df_stdb_output <- df_stdb_output %>% relocate(colnames(stdb.df.template.output))
+
+## review and compare the column names and order between your data and STDB output example
+data.frame(stdb.output.example = colnames(stdb.df.template.output),
+           data.example = colnames(df_stdb_output))
+
+```
+
+### OUTPUT STDB format: saving
+
+<br>
+
+-   You should now have another key file:
+
+    -   df_stdb_output
+    
+    -   The format of this file matches that of the output format of the STDB. i.e. the format of the data when you download it from the STDB.
+
+> NOTE: if your dataset is already hosted on the Seabird Tracking Database, you can download it from there directly and skip the steps above.
+
+```{r stdb-write-files-output}
+
+## Save the output file
+write.csv(df_stdb_output,
+          paste0("./data-testing/tracking-data/",
+                 species.name,
+                 "-",colony.name,"-tracking-STDB-output.csv"),
+          row.names = F)
+
+```
+

@@ -1,0 +1,14 @@
+# Sites: Refining boundaries
+
+Start SECTION: With final output from findSite()
+
+[CONSIDER: Also provide option to start section with outputs from seaward extension methods]
+
+Showcase:
+- Dropping small polygons
+- Filling holes in polygons
+- Merging polygons
+- Simplifying boundaries (smooth / minimum convex polygon)
+
+Depending on simplification, showcase:
+- How / which population estimates should be assigned to sites

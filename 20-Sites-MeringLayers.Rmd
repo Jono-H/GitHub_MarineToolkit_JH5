@@ -1,0 +1,11 @@
+# Sites: Merging layers
+
+
+[Consider guidance and code needed about merging layers in different ways. I.e. merging layers from analyses of multiple tracking datasets / dataGroups. Or merging layers from both seaward extensions and tracking data analyses.]
+
+Overview of different ways you can consider merging data.
+
+CONSIDERATIONS:
+- Implications for KBA criteria
+- Implications for management
+What makes sense from a biodiversity point of view.

@@ -1,0 +1,5 @@
+# Appendix: Tracking data support
+
+Other ideas to support users:
+
+- Support for trouble shooting and standardising data into correct format (either cleaning data to standardise across dataset, or cleaning data to standardize for SBTD format) (Note: Beth / Jono chat about this / Lizzie's thoughts on making shiny app to support this).

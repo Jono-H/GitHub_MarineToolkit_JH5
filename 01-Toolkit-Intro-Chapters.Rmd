@@ -1,0 +1,27 @@
+# Toolkit: Introductory chapters
+
+Holding place for chapters outlined on the MIRO board.
+
+Chapters include:
+
+-   Executive summary
+
+-   Overview of toolkit use cases
+
+-   Project management considerations
+
+-   Site OR Area-based conservation measures, general considerations
+
+-   Data required for IBAs / KBAs (in the context of Toolkit)
+
+-   Site types for seabirds explained
+
+-   Methods summary
+
+-   Conservation / Advocacy summary
+
+-   Techincal: suggested skills required, links to resources for learning
+
+-   dataGroups: General defition to possibly be applied to all applications
+
+-   Colony sites: code and steps to identify IBAs / KBAs for colonies

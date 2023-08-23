@@ -1,0 +1,563 @@
+# Track2KBA - Central Place Foragers: Analyse cleanded data
+
+Analyses outlined in this chapter were performed in **`r sessionInfo()$R.version$version.string`**\
+
+This chapter was last updated on **`r Sys.Date()`** 
+
+<br>
+
+<!--- This is an HTML comment in RMarkdown. You can use these comments to make notes that won't get read when running the code -->
+
+<!--- If you don't understand what a RMarkdown document is. Stop here. Go learn. -->
+
+<!--- Equally. You must understand the difference between Markdown vs. RMarkdown -->
+
+<!--- Remember, outside of the R code chunks we are now coding in HTML syntax, not R syntax -->
+
+
+## What this chapter covers:
+
+-   Analysis of key data via the track2kba protocol
+
+-   Deriving a final site which could be used for conservation planning purposes (such as that of KBAs)
+
+<br>
+
+## Where you can get example data for the chapter:
+
+This tutorial uses example data from a project led by the BirdLife International partner in Croatia: BIOM
+
+-   The citation for this data is: **TBC**
+
+-   The example data can be downloaded from: **Provide relevant download location**
+
+<br>
+
+## Description of data prefiltering for main track2kba analysis:
+
+-   Central place foraging data used for this tutorial have been prepared previously as follows:
+
+    -   General review of spatial data
+
+    -   Removing - if necessary - sections of tracks when animals were not tracked but devices were recording information [example code / procedures not yet provided]
+
+    -   Arranging data chronologically and removing duplicate entries
+
+    -   Speed filter for clearly erroneous location points
+    
+    -   Removing location points around the vicinty of the colony (as specified by the inner buffer parameter in earlier steps)
+
+    -   Removing data with too few location points
+    
+    -   Generating basic summary statistics of the tracking data
+
+    -   Reviewing the sampling frequency of data (i.e. what frequncy you set your devices to record at versus what they actually recorded at)
+
+    -   Liearly interpolating data to generate tracking information that approximates an even sampling interval
+
+
+**Consider:** When to clean data with respect to the steps above may depend on the type of animal you tracked and life-cycle stage the animal was tracked over.
+
+**Non central place foraging data:** If your data relates to a period when an animal was not exhibiting central place foraging, consider cleaning the data in line with steps above. However, you would not need to split tracks into trips and summarise data as above. The key thing is to have data approximating an equal sampling interval (i.e. data points evenly sampled in time)
+
+<!--- In the code chunk below, we specify include = F, so that we will run the chunk but not include the chunk in the final document. We set a global argument in the code chunk of echo = T, so that in later code chunks, the code will be displayed in the RMarkdown document -->
+
+```{r track2kba-analysis-setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+## we also specify in the options here to set the overall working directory
+## back to the root directory of the R Project we are working in. We do this
+## because by default , the working directory for R code chunks is the directory 
+## that contains the Rmd document. We don't want this option given our file
+## set up prefers the option of having the working directory specified as that
+## where the R Project is. By specifying double dots (or more), this is like saying
+## go back one directory or more, as required.
+knitr::opts_knit$set(root.dir = ".")
+```
+
+<br>
+
+
+## Load packages
+
+**Load required R packages for use with codes in this chapter:**
+
+If the package(s) fails to load, you will need to install the relevant package(s).
+
+```{r track2kba-analysis-load-packages, include = TRUE}
+
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## Load libraries --------------------------------------------------------------
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## sf package for spatial data analyses (i.e. vector files such as points, lines, polygons)
+library(sf)
+## Tidyverse for data manipulation
+library(tidyverse)
+## ggplot2 for plotting opionts
+library(ggplot2)
+## rnaturalearth package for basemaps in R
+library(rnaturalearth)
+## leaflet package for interactive maps in R
+#install.packages("leaflet")
+library(leaflet)
+##
+library(purrr)
+library(furrr)
+#install.packages("track2KBA")
+library(track2KBA)
+## for date time
+library(lubridate)
+## for stats
+library(stats)
+## speed filter
+library(trip)
+## linear interpolation
+library(adehabitatLT)
+
+```
+
+<br>
+
+## Define object names for chapter
+
+Typically, if your data follows the same format as the examples in the chapter (and previous chapters), then below should be the only thing(s) you need to change.
+
+```{r track2kba-analysis-objects}
+
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## Specify projections / store needed CRS definitions as variables ----
+## SEE: https://epsg.io/
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## world - unprojected coordinates
+# wgs84 <- st_crs("EPSG:4326")
+
+
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## Source a relevant basemap (download / or load your own)
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## Source a world map from the rnaturalearth R package
+## see details of function to change the type of map you get
+## If you can't download this map - you may need to load a separate shapefile
+## depicting a suitable basemap
+# worldmap <- rnaturalearth::ne_download(scale = "large",
+#                                        type = "countries",
+#                                        category = "cultural",
+#                                        destdir = tempdir(),
+#                                        load = TRUE,
+#                                        returnclass = "sf")
+
+```
+
+<br>
+
+## Read in file (or file created from previous chapter)
+
+```{r track2kba-analysis-load}
+
+## read in the pre-filtered, cleaned tracking data
+trips_interp_df <- read.csv("./data-testing/tracking-data/Puffinus-yelkouan-track2kba-files/Puffinus-yelkouan-input-tracks.csv")
+## read in the summary data for the tracks
+sumTrips <- read.csv("./data-testing/tracking-data/Puffinus-yelkouan-track2kba-files/Puffinus-yelkouan-input-summary.csv")
+
+```
+
+## track2KBA: format data for use
+
+<br>
+
+### track2KBA::formatFields()
+
+This function will help format your data to align with that required of track2KBA.
+
+In other words: for the track2KBA functions to work, your data needs to have certain columns named in the appropriate way. This function will help with that.
+
+> We apply the formatting to the most recently filtered data.
+
+```{r track2kba-analysis-format}
+
+## review current data
+head(data.frame(trips_interp_df),2)
+
+## Format the data BACK INTO key data fields to the standard used in track2KBA
+dataGroup_interp <- formatFields(
+  ## your input data.frame or tibble
+  dataGroup = trips_interp_df, 
+  ## ID of the animal you tracked
+  fieldID   = "bird_id", 
+  fieldDateTime = "date",
+  ## longitude of device
+  fieldLon  = "Longitude", 
+  ## latitude of device
+  fieldLat  = "Latitude"
+)
+
+## Check output. Output is a data.frame
+head(dataGroup_interp,2)
+
+```
+
+<br>
+
+## track2kba:: projectTracks()
+
+```{r track2kba-analysis-project}
+
+## run the function
+tracks_interp <- projectTracks(dataGroup = dataGroup_interp, projType = 'azim', custom=TRUE )
+
+```
+
+<br>
+
+## track2kba:: findScale()
+
+`findScale()` provides options for setting the all-important smoothing parameter in the KDE.
+
+`findScale()` calculates candidate smoothing parameter values using different methods.
+
+> Choosing the 'optimal' smoothing parameter is critical. See GitHub page. 
+
+[Consider what further advice we can give to users regarding choice of smoothing parameter?]
+
+```{r track2kba-analysis-findscale}
+
+## implement findScale function
+
+hVals <- findScale(
+  tracks   = tracks_interp,
+  scaleARS = TRUE,
+  sumTrips = sumTrips)
+
+## Review output
+hVals
+
+## must choose between one of three smoothing parameters for further analyses
+## smoothing parameter is distance in km. Read more in supporting documents.
+
+## Review each outputted smoothing parameter option
+hVals$mag # affected by range of animal movement. Only works for central place foragers.
+hVals$href # sort of represents quality of data
+hVals$scaleARS # affected by quality of data and subsequent ability to determine scale at which animal interacts with environment. Learn more about First Passage Time analysis
+
+```
+
+<br>
+
+## track2kba: estSpaceUse()
+
+Produce KDEs for each individual animal.
+
+NOTE: The grid cell size (i.e., grid resolution) should be less than the selected h value, otherwise the entire space use area of the animal may be encompassed in few cells.
+
+> Guidance needed on choice of smoothing parameter
+
+[Guidance: Choice of smoothing parameter]
+
+> Guidance on choice of UD
+
+[Guidance on choice of UD]
+
+```{r track2kba-analysis-estspaceuse}
+
+KDE <- estSpaceUse(
+  tracks = tracks_interp, 
+  scale = hVals$mag, 
+  levelUD = 50, 
+  polyOut = TRUE
+)
+
+```
+
+
+<br>
+
+## track2kba:: mapKDE()
+
+use the simple mapping function to get an overview of UDs for individuals
+
+```{r track2kba-analysis-mapkde}
+
+## Specify colony location if you have this.
+#colony <- data.frame()
+
+##
+mapKDE(KDE = KDE$UDPolygons,
+       colony = NULL) # input your colony location if you have this, to view in plot
+
+
+```
+
+
+<br>
+
+## track2kba: review choice of smoothing parameter
+
+After applying estSpaceUse and viewing plot with mapKDE, at this step we should 
+verify that the smoothing parameter value we selected is producing reasonable 
+space use estimates, given what we know about our study animals. Are the core 
+areas much larger than expected? Much smaller? If so, consider using a different 
+value for the `scale` parameter in the estSpaceUse function.
+
+```{r track2kba-analysis-smooth-review}
+
+## specify an individual
+## 14
+p = 7
+
+## convert to sf object 
+trips_sf_IndBird <- st_as_sf(tracks_interp) %>% 
+  dplyr::filter(ID == unique(tracks_interp$ID)[p])
+
+## get the UD for a single individual 
+ud_sf_IndBird <- KDE$UDPolygons %>% 
+  dplyr::filter(id == trips_sf_IndBird$ID[1]) %>% 
+  st_transform(.,crs = st_crs(tracks_interp))
+
+## Plot OVERALL data again for first single individual
+plot(st_geometry(trips_sf_IndBird), 
+     cex = 0.5, 
+     pch = 1)
+
+## and add the UD to the plot
+plot(st_geometry(ud_sf_IndBird),add=T, border = "red")
+
+warning("Assess whether your selected smoothing parameter has resulted in sensible
+        Utilisation Distributions.")
+
+warning("Can we use the above to consider some form of test to guide smoothing
+        parameter choice?.")
+
+```
+
+
+<br>
+
+## track2kba::repAssess()
+
+Estimate how representative this sample of animals is of the population.
+
+> **NOTE:** iterations should be set to 100 at a minimum when running the script officially.
+
+```{r track2kba-analysis-repassess}
+
+##
+repr <- repAssess(
+  tracks    = tracks_interp, 
+  KDE       = KDE$KDE.Surface,
+  levelUD   = 50,
+  iteration = 1, ## iterations should be set to 100 at a minimum when running the script officially
+  bootTable = FALSE)
+
+```
+
+<br>
+
+## track2kba::findSite()
+
+Using findSite() we can identify areas where animals are overlapping in space and delineate boundaries of sites which may be suited to area-based conservation measures.
+
+Types of sites that can be identified with this approach include Key Biodiversity Areas (KBAs).
+
+[Consider broader guidance required about identifying KBAs with this approach]
+
+> NOTE: The findSite() function is a computationally intensive task. It may take some time (several minutes) to run. Go make a cup of tea while you wait :)
+
+```{r track2kba-analysis-findsite}
+
+## indicate the population size of your source populaiton. e.g. the population size
+## of the colony from which you tracked birds. For KBA identification, this estimate
+## should be in Mature Individuals.
+## I.e. for seabird colonies: breeding pairs * 2 = mature individuals
+SourcePopulationSize = 1200
+
+##
+sf_use_s2(FALSE)
+
+## findSite function
+Site_PolyTrue <- findSite(
+  KDE = KDE$KDE.Surface,
+  represent = repr$out,
+  levelUD = 50,
+  popSize = SourcePopulationSize,     
+  polyOut = T
+)
+
+## review key outputs
+Site_PolyTrue
+dim(Site_PolyTrue)
+Site_PolyTrue$potentialSite
+
+```
+
+## track2kba::mapSite()
+
+A simple plotting option for mapping the outputs of findSite().
+
+```{r track2kba-analysis-mapsite}
+
+## plot option
+Sitemap_PolyTrue <- mapSite(Site_PolyTrue, 
+                            colony = NULL)
+
+## review output object
+Sitemap_PolyTrue
+
+```
+
+## track2kba::findSite(), further understanding
+
+If in findSite we instead specify polyOut=FALSE, our output will be a spatial
+grid of animal densities, with each cell representing the estimated number, or
+percentage of animals using that area. So this output is independent of the
+representativness-based importance threshold. i.e. the output indicates
+only the areas used by more or less individuals that you tracked, it does not
+give you a polygon that you would necessarily assess against IBA / KBA criteria.
+The output also does not use the representatives measure to estimate the OVERALL
+number of individuals that are likely using certain areas when you specify the
+popSize of your source population.
+
+
+```{r track2kba-analysis-findsite-2}
+
+# ## findSite with polyOut=FALSE
+# Site_PolyFalse <- findSite(
+#   KDE = KDE$KDE.Surface,
+#   represent = repr$out,
+#   levelUD = 50,
+#   popSize = SourcePopulationSize, 
+#   polyOut = FALSE
+# )
+# 
+# ## review outputs
+# dim(Site_PolyFalse)
+# max(Site_PolyFalse@data$N_IND)
+# max(Site_PolyFalse@data$N_animals)
+# head(unique(Site_PolyFalse@data$ID_IND))
+# 
+# ## simple plot option
+# Sitemap_PolyFalse <- mapSite(Site_PolyFalse, colony = colony)
+# 
+# ## review output object
+# Sitemap_PolyFalse
+
+```
+
+
+## track2kba::findSite(), outputs explained
+
+By default, findSite sets the threshold of site importance for the source population based on the degree of tracking sample representativeness following Lascelles et al. (2016): i.e., samples that are >90%, 80-89%, 70-79%, and <70% representative set the threshold for delineating a site as important for the local source population at 10%, 12.5%, 25%, and 50%, respectively)
+
+For samples with representativeness of >90%, the area that is considered
+potentially suitable for assessment against relevant criteria. eg. KBAs,
+is only that area used by 10% or MORE of the individuals from the source
+population. Any area used by 10% or LESS of the source population is not
+thought to sufficiently represent where the source population may be found,
+and hence is excluded from further assessment.
+
+The threshold rules were agreed upon by expert consensus.
+
+Note, when representativeness = 90% a bigger overall area in red is defined
+as potentially suitable for assessment against relevant criteria.
+when representativeness = 75% a SMALLER overall area in red is defined
+as potentially suitable for assessment against relevant criteria.
+This is because with a lower representativeness score, track2KBA provides
+a more conservative estimate of which areas can definitively be considered
+core areas regularly used by the sampled population.
+NOTE also: the total number of individuals estimated using the area is reduced
+when representativeness is lower. ie. basically, a lower total number of
+individuals are estimated to be using areas when we are more unsure about how
+well the data likely represents the source population.
+
+## track2kba: Save key outputs
+
+[Consider saving key outputs here instead and aligning output names with the seaward extension outputs. Then we could have a single chapter where we deal with the outputs of both for assessing sites against relevant criteria]
+
+## track2kba::findSite(), IBA / KBA assessment considerations
+
+[Consider further text / options here]
+
+
+## IBA assessment data preparation
+
+NOTE, when polyOut = TRUE for function findSite(), the output includes a simple features object with polygons (represented by each row of data) 
+that represent the number of overlapping UDs for individuals (N_IND), and the associated estimate of abundance (N_animals) within each of those polygons scaled according to the popSize and representativeness score.
+
+In track2KBA we don't offer much advice about how to use the final outputs
+from findSite() for assessing data against various criteria, such as the IBA
+or KBA criteria. The text on GitHub (as of 18 Oct 2022), notes: 
+
+'Then, we can combine all the polygons within the 'potentialSite' area, 
+and use, for example, the maximum number of individuals present in that 
+area to assess whether it may merit identification as a Key Biodiversity 
+Area according to the KBA standard.', 
+
+BUT: This does text does not describe how to deal with all the individual
+polygons that were representative, and may be quite separate from each
+other in space!
+
+
+```{r track2kba-analysis-findsite-3}
+
+## To assess each polygon we first need to summarise the data further.
+## First, we must determine how many and where each unique polygon is.
+Site.polygons <- Site_PolyTrue %>% 
+  ## filter to only include potentialSite's
+  dplyr::filter(potentialSite==TRUE) %>%
+  ## union to create multipart polygon
+  st_union(.) %>% 
+  ## cast to create single part polygon object
+  st_cast(., "POLYGON") %>% 
+  st_as_sf() %>% 
+  ## add unique id for each polygon
+  mutate(poly.id = 1:nrow(.))
+
+## Plot to review
+p <- ggplot() +
+  geom_sf(data = Site.polygons, aes(fill = as.factor(poly.id))) +
+  #scale_fill_viridis_c(trans = "sqrt", alpha = 1) +
+  scale_color_viridis(discrete = TRUE) +
+  guides(fill=guide_legend(title='Polygon')) +
+  ## add the polygon labels
+  geom_sf_text(data = Site.polygons, aes(label = poly.id), colour = "black", size = 5) +
+  ## remove x y labels
+  theme(axis.title.x = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  # Title
+  ggtitle(paste("Polygons for assessment against IBA criteria",sep=""))+
+  theme(plot.title = element_text(hjust = 0.5))
+
+p
+
+## Second, considering that for each representative polygon, the maximum number
+## of animals could technically spread across anywhere in the site, we need
+## to get the maximum number of animals for each site.
+
+## Merge the new unique polygons with the Site info and get overlapping data
+sf::sf_use_s2(FALSE) # run this if issues with st_intersection: https://stackoverflow.com/questions/68478179/how-to-resolve-spherical-geometry-failures-when-joining-spatial-data
+## Using an intersection, find all the data from Site object (the findSite output) 
+## that intersects with Site.polygons object (the unique polygons)
+Site.polygons.data <- st_intersection(Site.polygons, Site_PolyTrue)
+
+## Summarise the data for each unique polygon.
+Site.polygons.data.summary <- Site.polygons.data %>% 
+  group_by(poly.id) %>% 
+  summarise(N_animals_max = round(max(N_animals),0),
+            N_IND_max  = round(max(N_IND ),0)) %>% 
+  st_drop_geometry() %>% 
+  data.frame()
+
+## bind this data back onto the spatial object
+Site.polygons <- left_join(Site.polygons, 
+                           Site.polygons.data.summary,
+                           by = "poly.id")
+
+
+```
+
+[Further guidance will need to be provided about the weird artefact sites you can get from the track2kba analysis]
+
+## SAVING OUTPUTS
+
+[May be better to save key outputs here for further assessment against relevant criteria]

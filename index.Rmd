@@ -1,0 +1,37 @@
+---
+title: "Marine Megafauna Conservation Toolkit: with a huge seabird bias"
+author: "BirdLife International Partnership"
+site: bookdown::bookdown_site
+documentclass: book
+output:
+  bookdown::gitbook: default
+    #config:
+        #toc:
+          #collapse: section
+  #toc_depth: 1
+  #toc_float: true
+  #bookdown::pdf_book: default
+---
+
+<!-- REEEEEEEAAAAAD / SEEEEEEE: https://bookdown.org/yihui/bookdown/html.html#gitbook-style for YAML heading options -->
+
+
+<!-- This is an HTML comment - it will not display when you build the book -->
+<!-- Remember, inside this RMarkdown document, text that is not written in code chunks is written in html language -->
+<!-- If you need PDF output, uncomment bookdown::pdf_book above in YAML. You will need a LaTeX installation, e.g., https://yihui.name/tinytex/ -->
+
+<!-- Depending on the default setting in the YAML header of RMarkdown doc,
+you can remove numbering from headers by adding {-} at the end of a header-->
+# Preface {-}
+
+
+<!-- ![Gentoo Penguin, Cow Bay, Falkland Islands, Jono Handley](photos-for-book/Gentoo_CowBay_March13.JPG) -->
+![](photos-for-book/Seabirds-NightCafe-1.jpg)
+
+
+<!-- Adding <br> will give a single line break -->
+<br>
+
+
+
+

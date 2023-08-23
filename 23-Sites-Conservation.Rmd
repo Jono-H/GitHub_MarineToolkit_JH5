@@ -1,0 +1,19 @@
+# Sites: Conservation
+
+Text to be developed
+
+What you can do with different data layers:
+
+- general outputs (incl. sites not meeting KBA criteria)
+- dataGroup layers meeting KBA criteria
+- Global KBA layers
+
+How you can consider conservation actions for species using these layers. i.e. actions against threats (Dias et al. 2019).
+
+NOTE: Context of spatial scales of conservation (Boyd / Oppel)
+
+Need to define limitations of suggested conservation actions.
+
+Showcase: different data layers that can be used to help identify potential threats and where these might be acting on species.
+
+Links: to Conservation Evidence

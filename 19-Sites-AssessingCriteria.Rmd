@@ -1,0 +1,15 @@
+# Sites: Assessing criteria
+
+Start SECTION: With final output from findSite()
+
+[CONSIDER: Also provide option to start section with outputs from seaward extension methods]
+
+Write rules to assess data against KBA criteria.
+
+[See example code from India IBA work]
+
+Create output that prepares data in format required for entering in WDKBA.
+
+CAVEAT: This assumes you are only assessing one dataGroup against KBA criteria and only consider that data for a potential KBA.
+
+It DOES NOT account for how you identify a global KBA where you need to consider multiple overlapping element layers (e.g. overlapping layers from different species but all in slightly different places - and how you would delineate a final KBA boundary).

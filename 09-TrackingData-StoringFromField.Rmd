@@ -1,0 +1,3 @@
+# Tracking data: Storing data from the field
+
+Using example data overview, provide suggestion about how one could set up folder structure to store data from the field.
